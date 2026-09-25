@@ -1,0 +1,11 @@
+{
+  "id": "/Rugby-Today/",
+  "name": "Rugby Today",
+  "short_name": "Rugby Today",
+  "start_url": "/Rugby-Today/",
+  "scope": "/Rugby-Today/",
+  "display": "standalone",
+  "background_color": "#06172b",
+  "theme_color": "#07213b",
+  "description": "Daily rugby fixtures, scores and key events."
+}

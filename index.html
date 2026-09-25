@@ -4,6 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#07213b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Rugby Today">
+  <link rel="manifest" href="manifest.webmanifest">
   <title>Rugby Today</title>
   <style>
     :root{font-family:Arial,Helvetica,sans-serif;color-scheme:dark}
@@ -19,6 +23,7 @@
     .score{display:block;margin-top:.55rem;color:#ffe477;font-size:1.4rem}.details{margin:-.5rem 0 .35rem;padding:1rem;border:2px solid #6691b3;border-radius:.75rem;background:#0a2948;line-height:1.6}
     .details p{margin:.2rem 0}.details h2{font-size:1.2rem;margin:1rem 0 .35rem}.details ul{padding-left:1.4rem}.details li{margin:.35rem 0}.details a{color:#91e8ff;font-weight:700}
     .notice{padding:1rem;border:2px solid #7195b1;border-radius:.75rem;background:#0a2948;line-height:1.5}.error{border-color:#ff9a9a}
+    .notifications{width:100%;margin-bottom:1rem;padding:.8rem 1rem;background:#f3c541;color:#06172b;border-color:#f3c541}
   </style>
 </head>
 <body>
@@ -27,18 +32,20 @@
     <div class="language" role="group" aria-label="Language / Taal">
       <button id="en" type="button">English</button><button id="af" type="button">Afrikaans</button>
     </div>
+    <button id="notifications" class="notifications" type="button">Enable Notifications</button>
     <div class="toolbar"><p id="updated"></p><button id="refresh" class="refresh" type="button">Refresh</button></div>
     <div id="message" aria-live="polite"></div><div id="matches"></div>
   </main>
   <script>
     let data={matches:[],updated:""},openKey="",language=localStorage.getItem("rugby-language")||"en";
-    const t={en:{title:"Rugby Today",updated:"Data updated",refresh:"Refresh",against:"versus",kickoff:"Kick-off",status:"Status",score:"Score",events:"Commentary / key events",none:"No rugby matches are scheduled today.",noevents:"No key events yet.",open:"Open Rugby365 match page",error:"The rugby information could not be loaded. Press Refresh to try again.",upcoming:"Upcoming",finished:"Full Time"},af:{title:"Rugby Vandag",updated:"Data opgedateer",refresh:"Verfris",against:"teen",kickoff:"Afskop",status:"Status",score:"Telling",events:"Kommentaar / belangrike gebeure",none:"Geen rugbywedstryde is vandag geskeduleer nie.",noevents:"Nog geen belangrike gebeure nie.",open:"Maak Rugby365-wedstrydblad oop",error:"Die rugby-inligting kon nie gelaai word nie. Druk Verfris om weer te probeer.",upcoming:"Komende",finished:"Voltyds"}};
+    const t={en:{title:"Rugby Today",updated:"Data updated",refresh:"Refresh",against:"versus",kickoff:"Kick-off",status:"Status",score:"Score",events:"Commentary / key events",none:"No rugby matches are scheduled today.",noevents:"No key events yet.",open:"Open Rugby365 match page",error:"The rugby information could not be loaded. Press Refresh to try again.",upcoming:"Upcoming",finished:"Full Time",notifications:"Enable Notifications",notificationsOn:"Notifications Enabled",notificationsUnsupported:"Notifications are not supported here. Open Rugby Today from the iPhone Home Screen.",notificationsDenied:"Notifications are blocked. You can change this in iPhone Settings > Notifications."},af:{title:"Rugby Vandag",updated:"Data opgedateer",refresh:"Verfris",against:"teen",kickoff:"Afskop",status:"Status",score:"Telling",events:"Kommentaar / belangrike gebeure",none:"Geen rugbywedstryde is vandag geskeduleer nie.",noevents:"Nog geen belangrike gebeure nie.",open:"Maak Rugby365-wedstrydblad oop",error:"Die rugby-inligting kon nie gelaai word nie. Druk Verfris om weer te probeer.",upcoming:"Komende",finished:"Voltyds",notifications:"Skakel Notifications Aan",notificationsOn:"Notifications Aangeskakel",notificationsUnsupported:"Notifications word nie hier ondersteun nie. Maak Rugby Today vanaf die iPhone Home Screen oop.",notificationsDenied:"Notifications is geblokkeer. Jy kan dit verander by iPhone Settings > Notifications."}};
     const list=document.querySelector("#matches"),message=document.querySelector("#message");
     function statusText(s,w){return s==="FINISHED"?w.finished:s==="UPCOMING"?w.upcoming:s||w.upcoming}
     function key(m){return m.home+"|"+m.away+"|"+m.kickoff}
     function draw(){const w=t[language];document.documentElement.lang=language;document.querySelector("#title").textContent=w.title;
       document.querySelector("#date").textContent=new Intl.DateTimeFormat(language==="af"?"af-ZA":"en-ZA",{timeZone:"Africa/Johannesburg",weekday:"long",day:"numeric",month:"long",year:"numeric"}).format(new Date());
       document.querySelector("#refresh").textContent=w.refresh;document.querySelector("#updated").textContent=w.updated+": "+(data.updated||"-");
+      const nb=document.querySelector("#notifications");nb.textContent=Notification.permission==="granted"?w.notificationsOn:w.notifications;
       for(const l of ["en","af"])document.querySelector("#"+l).setAttribute("aria-pressed",String(language===l));
       list.replaceChildren();message.replaceChildren();if(!data.matches.length){message.innerHTML='<p class="notice">'+w.none+'</p>';return}
       data.matches.forEach((m,i)=>{const k=key(m),b=document.createElement("button");b.type="button";b.className="match";b.setAttribute("aria-expanded",String(openKey===k));b.setAttribute("aria-controls","details-"+i);b.innerHTML=m.home+" "+w.against+" "+m.away+'<span class="score">'+statusText(m.status,w)+": "+m.score+"</span>";
@@ -49,6 +56,24 @@
     }
     function escapeHtml(v){return String(v||"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
     async function load(speak=false){try{const r=await fetch("data.json?t="+Date.now(),{cache:"no-store"});if(!r.ok)throw new Error();data=await r.json();message.replaceChildren();draw();if(speak)message.setAttribute("aria-label",t[language].updated+": "+data.updated)}catch(e){message.innerHTML='<p class="notice error">'+t[language].error+'</p>'}}
+    async function enableNotifications(){
+      const w=t[language],b=document.querySelector("#notifications");
+      if(!("Notification" in window)||!("serviceWorker" in navigator)){
+        alert(w.notificationsUnsupported);return;
+      }
+      try{
+        await navigator.serviceWorker.register("sw.js");
+        const permission=await Notification.requestPermission();
+        if(permission==="granted"){
+          b.textContent=w.notificationsOn;
+          alert(w.notificationsOn+". Rugby Today is now ready for the next push-notification step.");
+        }else{
+          alert(w.notificationsDenied);
+        }
+      }catch(e){alert(w.notificationsUnsupported)}
+    }
+    if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+    document.querySelector("#notifications").addEventListener("click",enableNotifications);
     document.querySelector("#refresh").addEventListener("click",()=>load(true));for(const l of ["en","af"])document.querySelector("#"+l).addEventListener("click",()=>{language=l;localStorage.setItem("rugby-language",l);draw()});
     draw();load();setInterval(()=>load(false),30000);
   </script>
