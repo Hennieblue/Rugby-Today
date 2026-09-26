@@ -29,6 +29,9 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - name: Read Rugby365
+        env:
+          ONESIGNAL_API_KEY: ${{ secrets.ONESIGNAL_API_KEY }}
+          ONESIGNAL_APP_ID: 89e4d4d9-37c6-49dc-9244-8f58dcc386cf
         run: python update_rugby.py
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
